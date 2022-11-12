@@ -26,26 +26,15 @@
 
 11. Choose or leave the following trigger settings and then select save. You should be all done!
 
-Which function to run
-: updateSchedules
+### Trigger Settings
 
-Which deployment to run
-: Head
-
-Event source
-: Time-driven
-
-Type of time based trigger
-: Week timer
-
-Day of week
-: Every Monday (or your choice)
-
-Time of Day
-: Midnight to 1am (or your choice)
-
-Failure notification settings
-: Notify me immediately (or your choice)
+* **Which function to run:** updateSchedules
+* **Which deployment to run:** Head
+* **Event source:** Time-driven
+* **Type of time based trigger:** Week timer
+* **Day of week:** Every Monday (or your choice)
+* **Time of Day:** Midnight to 1am (or your choice)
+* **Failure notification settings:** Notify me immediately (or your choice)
 
 ## Example Configurations
 
@@ -101,3 +90,21 @@ This permission is required for the script to read City of Toronto webpages. The
 ## Troubleshooting
 
 If you have any problems or questions while using the script, please open a new issue in the "Issues" tab of this repository.
+
+## Guide to Updated Google Calendar Colors
+
+The documentation for the [EventColor Enum](https://developers.google.com/apps-script/reference/calendar/event-color) appears to be out of date. The actual colors you will get from the following Enums/Indexes are as follows:
+
+| Property Name | Index | Documentation Description                                                                                   | Actual Color                                                                                               |
+| :------------ | :---- | :---------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
+| PALE_BLUE     | "1"   | <div style="background-color: #A4BDFC; display: inline-block; height: 10px; width: 10px;"></div> Pale Blue  | <div style="background-color: #7B86C6; display: inline-block; height: 10px; width: 10px;"></div> Lavender  |
+| PALE_GREEN    | "2"   | <div style="background-color: #7AE7BF; display: inline-block; height: 10px; width: 10px;"></div> Pale Green | <div style="background-color: #5DB47E; display: inline-block; height: 10px; width: 10px;"></div> Sage      |
+| MAUVE         | "3"   | <div style="background-color: #BDADFF; display: inline-block; height: 10px; width: 10px;"></div> Mauve      | <div style="background-color: #832DA4; display: inline-block; height: 10px; width: 10px;"></div> Grape     |
+| PALE_RED      | "4"   | <div style="background-color: #FF887C; display: inline-block; height: 10px; width: 10px;"></div> Pale Red   | <div style="background-color: #D88177; display: inline-block; height: 10px; width: 10px;"></div> Flamingo  |
+| YELLOW        | "5"   | <div style="background-color: #FBD75B; display: inline-block; height: 10px; width: 10px;"></div> Yellow     | <div style="background-color: #EDC14B; display: inline-block; height: 10px; width: 10px;"></div> Banana    |
+| ORANGE        | "6"   | <div style="background-color: #FFB878; display: inline-block; height: 10px; width: 10px;"></div> Orange     | <div style="background-color: #E25D33; display: inline-block; height: 10px; width: 10px;"></div> Tangerine |
+| CYAN          | "7"   | <div style="background-color: #46D6DB; display: inline-block; height: 10px; width: 10px;"></div> Cyan       | <div style="background-color: #4599DF; display: inline-block; height: 10px; width: 10px;"></div> Peacock   |
+| GRAY          | "8"   | <div style="background-color: #E1E1E1; display: inline-block; height: 10px; width: 10px;"></div> Gray       | <div style="background-color: #616161; display: inline-block; height: 10px; width: 10px;"></div> Graphite  |
+| BLUE          | "9"   | <div style="background-color: #5484ED; display: inline-block; height: 10px; width: 10px;"></div> Blue       | <div style="background-color: #4350AF; display: inline-block; height: 10px; width: 10px;"></div> Blueberry |
+| GREEN         | "10"  | <div style="background-color: #51B749; display: inline-block; height: 10px; width: 10px;"></div> Green      | <div style="background-color: #397E49; display: inline-block; height: 10px; width: 10px;"></div> Basil     |
+| RED           | "11"  | <div style="background-color: #DC2127; display: inline-block; height: 10px; width: 10px;"></div> Red        | <div style="background-color: #C3291C; display: inline-block; height: 10px; width: 10px;"></div> Tomato    |
