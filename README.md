@@ -47,12 +47,13 @@ const programs = [
       'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
       'program_type': "Swimming",
       'course_title': "Lane Swim",
+      'age_info': "",
       'color': ""
     }
   ];
 ```
 
-Multiple schedules (can be in the same calendar), e.g. Bridge and Gentle AquaFit at North Toronto Memorial, with AquaFit events coloured blue:
+Multiple schedules (can be in the same calendar), e.g. Bridge and Gentle AquaFit at North Toronto Memorial, with AquaFit events [coloured "Lavender"](#guide-to-updated-google-calendar-colors):
 
 ```js
 const programs = [
@@ -61,6 +62,7 @@ const programs = [
       'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
       'program_type': "General Interest",
       'course_title': "Cards: Bridge",
+      'age_info': "",
       'color': ""
     },
     {
@@ -68,7 +70,23 @@ const programs = [
       'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
       'program_type': "Swimming",
       'course_title': "Aquafit: Gentle",
-      'color': CalendarApp.EventColor.BLUE
+      'age_info': "",
+      'color': "1"
+    }
+  ];
+```
+
+Beginner Pilates at North Toronto Memorial, but only for ages 16 and older:
+
+```js
+const programs = [
+    {
+      'calendar_id': "<example>@group.calendar.google.com",
+      'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
+      'program_type': "Fitness",
+      'course_title': "Pilates - Beginner",
+      'age_info': "(16yrs and over)",
+      'color': ""
     }
   ];
 ```
@@ -95,16 +113,16 @@ If you have any problems or questions while using the script, please open a new 
 
 The documentation for the [EventColor Enum](https://developers.google.com/apps-script/reference/calendar/event-color) appears to be out of date. The actual colors you will get from the following Enums/Indexes are as follows:
 
-| Property Name | Index | Documentation Description                                                                                   | Actual Color                                                                                               |
-| :------------ | :---- | :---------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
-| PALE_BLUE     | "1"   | <div style="background-color: #A4BDFC; display: inline-block; height: 10px; width: 10px;"></div> Pale Blue  | <div style="background-color: #7B86C6; display: inline-block; height: 10px; width: 10px;"></div> Lavender  |
-| PALE_GREEN    | "2"   | <div style="background-color: #7AE7BF; display: inline-block; height: 10px; width: 10px;"></div> Pale Green | <div style="background-color: #5DB47E; display: inline-block; height: 10px; width: 10px;"></div> Sage      |
-| MAUVE         | "3"   | <div style="background-color: #BDADFF; display: inline-block; height: 10px; width: 10px;"></div> Mauve      | <div style="background-color: #832DA4; display: inline-block; height: 10px; width: 10px;"></div> Grape     |
-| PALE_RED      | "4"   | <div style="background-color: #FF887C; display: inline-block; height: 10px; width: 10px;"></div> Pale Red   | <div style="background-color: #D88177; display: inline-block; height: 10px; width: 10px;"></div> Flamingo  |
-| YELLOW        | "5"   | <div style="background-color: #FBD75B; display: inline-block; height: 10px; width: 10px;"></div> Yellow     | <div style="background-color: #EDC14B; display: inline-block; height: 10px; width: 10px;"></div> Banana    |
-| ORANGE        | "6"   | <div style="background-color: #FFB878; display: inline-block; height: 10px; width: 10px;"></div> Orange     | <div style="background-color: #E25D33; display: inline-block; height: 10px; width: 10px;"></div> Tangerine |
-| CYAN          | "7"   | <div style="background-color: #46D6DB; display: inline-block; height: 10px; width: 10px;"></div> Cyan       | <div style="background-color: #4599DF; display: inline-block; height: 10px; width: 10px;"></div> Peacock   |
-| GRAY          | "8"   | <div style="background-color: #E1E1E1; display: inline-block; height: 10px; width: 10px;"></div> Gray       | <div style="background-color: #616161; display: inline-block; height: 10px; width: 10px;"></div> Graphite  |
-| BLUE          | "9"   | <div style="background-color: #5484ED; display: inline-block; height: 10px; width: 10px;"></div> Blue       | <div style="background-color: #4350AF; display: inline-block; height: 10px; width: 10px;"></div> Blueberry |
-| GREEN         | "10"  | <div style="background-color: #51B749; display: inline-block; height: 10px; width: 10px;"></div> Green      | <div style="background-color: #397E49; display: inline-block; height: 10px; width: 10px;"></div> Basil     |
-| RED           | "11"  | <div style="background-color: #DC2127; display: inline-block; height: 10px; width: 10px;"></div> Red        | <div style="background-color: #C3291C; display: inline-block; height: 10px; width: 10px;"></div> Tomato    |
+| Property Name | Index | Documentation Description                                           | Actual Color                                                       |
+| :------------ | :---- | :------------------------------------------------------------------ | :----------------------------------------------------------------- |
+| PALE_BLUE     | "1"   | ![#A4BDFC](https://placehold.co/10x10/A4BDFC/A4BDFC.png) Pale Blue  | ![#7B86C6](https://placehold.co/10x10/7B86C6/7B86C6.png) Lavender  |
+| PALE_GREEN    | "2"   | ![#7AE7BF](https://placehold.co/10x10/7AE7BF/7AE7BF.png) Pale Green | ![#5DB47E](https://placehold.co/10x10/5DB47E/5DB47E.png) Sage      |
+| MAUVE         | "3"   | ![#BDADFF](https://placehold.co/10x10/BDADFF/BDADFF.png) Mauve      | ![#832DA4](https://placehold.co/10x10/832DA4/832DA4.png) Grape     |
+| PALE_RED      | "4"   | ![#FF887C](https://placehold.co/10x10/FF887C/FF887C.png) Pale Red   | ![#D88177](https://placehold.co/10x10/D88177/D88177.png) Flamingo  |
+| YELLOW        | "5"   | ![#FBD75B](https://placehold.co/10x10/FBD75B/FBD75B.png) Yellow     | ![#EDC14B](https://placehold.co/10x10/EDC14B/EDC14B.png) Banana    |
+| ORANGE        | "6"   | ![#FFB878](https://placehold.co/10x10/FFB878/FFB878.png) Orange     | ![#E25D33](https://placehold.co/10x10/E25D33/E25D33.png) Tangerine |
+| CYAN          | "7"   | ![#46D6DB](https://placehold.co/10x10/46D6DB/46D6DB.png) Cyan       | ![#4599DF](https://placehold.co/10x10/4599DF/4599DF.png) Peacock   |
+| GRAY          | "8"   | ![#E1E1E1](https://placehold.co/10x10/E1E1E1/E1E1E1.png) Gray       | ![#616161](https://placehold.co/10x10/616161/616161.png) Graphite  |
+| BLUE          | "9"   | ![#5484ED](https://placehold.co/10x10/5484ED/5484ED.png) Blue       | ![#4350AF](https://placehold.co/10x10/4350AF/4350AF.png) Blueberry |
+| GREEN         | "10"  | ![#51B749](https://placehold.co/10x10/51B749/51B749.png) Green      | ![#397E49](https://placehold.co/10x10/397E49/397E49.png) Basil     |
+| RED           | "11"  | ![#DC2127](https://placehold.co/10x10/DC2127/DC2127.png) Red        | ![#C3291C](https://placehold.co/10x10/C3291C/C3291C.png) Tomato    |
