@@ -10,7 +10,7 @@
 
 3. At this point, it is also a good idea to rename the script project from 'Untitled project' to something like "Toronto Rec Schedule Sync". You can rename the project by selecting its name at the top of your screen.
 
-4. Fill out the config details below where it says `const programs = [`. There are instructions in the script and samples below for additional help.
+4. Fill out the config details below where it says `const programs = [`. There are instructions in the script and samples below for additional help. You might also find it helpful to [create a separate calendar](https://support.google.com/calendar/answer/37095?hl=en) for the script.
 
 5. To the right of the icon is a function drop-down (it will probably say 'updateSchedules'). Open this drop-down, select 'updateSchedules', and then select 'Run'. This will sync your selected schedule(s) to your calendar for the first time.
 
