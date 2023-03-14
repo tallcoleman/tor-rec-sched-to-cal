@@ -1,6 +1,6 @@
 # Toronto Recreation Schedule to Google Calendar
 
- A Google Apps Script to sync a City of Toronto recreation program schedule (e.g. swimming times) to your Google calendar.
+ A Google Apps Script to sync a City of Toronto recreation program schedule (e.g. lane swim times) to your Google calendar.
 
  ## Installation
 
