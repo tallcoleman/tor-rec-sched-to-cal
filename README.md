@@ -109,6 +109,8 @@ This permission is required for the script to read City of Toronto webpages. The
 
 If you have any problems or questions while using the script, please open a new issue in the "Issues" tab of this repository.
 
+If you want to delete all the events in a specific calendar so that you can run the script from scratch, see the instructions for the `clearCalendar` function at the bottom of [schedulesync.gs](https://github.com/tallcoleman/tor-rec-sched-to-cal/blob/main/schedulesync.gs).
+
 ## Guide to Updated Google Calendar Colors
 
 The documentation for the [EventColor Enum](https://developers.google.com/apps-script/reference/calendar/event-color) appears to be out of date. The actual colors you will get from the following Enums/Indexes are as follows:
