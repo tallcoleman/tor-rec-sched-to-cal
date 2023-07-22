@@ -40,7 +40,7 @@ function updateSchedules() {
 function scheduleSync(programs) {
   // generic regular expressions
   const re_facility_name = /<div class="accbox">.*?<h1>\s*?(?<name>\S.*?)\s*?<\/h1>/s;
-  const re_facility_address = /<span class="addressbar">.*?<span class="badge">\s+?(?<address>\S.*?)\s+?<span/s
+  const re_facility_address = /<div class="accbox">.*?Address:.*?<span>\s+?(?<address>\S.*?)\s+?<\/strong>/s;
   const re_date_row = /<thead>[\s\S]+?<\/thead>/m;
   const re_dates = /<th scope.*?>([\w\s]+?\d+?)<\/th>/gm;
   const re_program_time_collections = /<td class="coursehrscol">(.*?)<\/td>/gm;
@@ -68,6 +68,7 @@ function scheduleSync(programs) {
     let response = UrlFetchApp.fetch(facility_url);
     let response_text = response.getContentText("UTF-8");
     let facility_name = response_text.match(re_facility_name).groups['name'];
+    Logger.log(`(${facility_name})`);
     let facility_address = response_text.match(re_facility_address).groups['address'];
     let program_dropin = response_text.match(re_program_dropin)[0];
     let program_weeks = program_dropin.matchAll(re_program_weeks);
