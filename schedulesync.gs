@@ -37,171 +37,189 @@ function updateSchedules() {
   }
   
   
-function scheduleSync(programs) {
-  // generic regular expressions
-  const re_facility_name = /<div class="accbox">.*?<h1>\s*?(?<name>\S.*?)\s*?<\/h1>/s;
-  const re_facility_address = /<div class="accbox">.*?Address:.*?<span>\s+?(?<address>\S.*?)\s+?<\/strong>/s;
-  const re_date_row = /<thead>[\s\S]+?<\/thead>/m;
-  const re_dates = /<th scope.*?>([\w\s]+?\d+?)<\/th>/gm;
-  const re_program_time_collections = /<td class="coursehrscol">(.*?)<\/td>/gm;
-
-  for (let {calendar_id, facility_url, program_type, course_title, age_info, color} of programs) {
-    // per-program regular expressions
-    const re_program_dropin = new RegExp(
-      String.raw`<div.*?id="content_dropintype_` +
-      program_type.split(' ')[0] +
-      String.raw`".*?>[\s\S]+?<\/div>`,
-      'm');
-    const re_program_weeks = new RegExp(
-      String.raw`<tr.*?id="dropin_` +
-      program_type.split(' ')[0] +
-      String.raw`_\d".*?>[\s\S]*?<td>[\s\S]*?<table>[\s\S]+?<\/table>[\s\S]*?<\/td>[\s\S]*?<\/tr>`,
-    'gm');
-    const re_program_rows = new RegExp(
-      String.raw`<tr>.*?<th.*?class="coursetitlecell".*?>.*?<span.*?class="coursetitlecol".*?>` +
-      course_title +
-      String.raw`<\/span>[\s\S]+?<span.*?class="courseagecol".*?>(?<age_info>.*?)<\/span>[\s\S]+?<\/tr>`,
+  function scheduleSync(programs) {
+    // generic regular expressions
+    const re_facility_name = /<div class="accbox">.*?<h1>\s*?(?<name>\S.*?)\s*?<\/h1>/s;
+    const re_facility_address = /<div class="accbox">.*?Address:.*?<span>\s+?(?<address>\S.*?)\s+?<\/strong>/s;
+    const re_date_row = /<thead>[\s\S]+?<\/thead>/m;
+    const re_dates = /<th scope.*?>([\w\s]+?\d+?)<\/th>/gm;
+    const re_program_time_collections = /<td class="coursehrscol">(.*?)<\/td>/gm;
+  
+    for (let {calendar_id, facility_url, program_type, course_title, age_info, color} of programs) {
+      // per-program regular expressions
+      const re_program_dropin = new RegExp(
+        String.raw`<div.*?id="content_dropintype_` +
+        program_type.split(' ')[0] +
+        String.raw`".*?>[\s\S]+?<\/div>`,
+        'm');
+      const re_program_weeks = new RegExp(
+        String.raw`<tr.*?id="dropin_` +
+        program_type.split(' ')[0] +
+        String.raw`_\d".*?>[\s\S]*?<td>[\s\S]*?<table>[\s\S]+?<\/table>[\s\S]*?<\/td>[\s\S]*?<\/tr>`,
       'gm');
-  
-    // get html from facility page and pull out schedule section
-    Logger.log(`Pulling data on ${program_type}: ${course_title} from ${facility_url}`);
-    let response = UrlFetchApp.fetch(facility_url);
-    let response_text = response.getContentText("UTF-8");
-    let facility_name = response_text.match(re_facility_name).groups['name'];
-    Logger.log(`(${facility_name})`);
-    let facility_address = response_text.match(re_facility_address).groups['address'];
-    let program_dropin = response_text.match(re_program_dropin)[0];
-    let program_weeks = program_dropin.matchAll(re_program_weeks);
-  
-    // parse schedule section
-    let program_data = [];
-    for (let [program_week] of program_weeks) {
-      // grab dates from header row
-      let date_row = program_week.match(re_date_row)[0];
-      let dates = [...date_row.matchAll(re_dates)].map(x => x[1]);
-  
-      // grab times from appropriate program rows
-      let program_rows = [...program_week.matchAll(re_program_rows)];
-      for (let program_row of program_rows) {
-        // check age info matches if specified
-        let program_age_info = program_row.groups['age_info'].trim();
-        if (age_info && (program_age_info !== age_info)) continue;
-        
-        // collect dates and times for program week
-        let program_time_collections = [...program_row[0].matchAll(re_program_time_collections)].map(x => x[1]);
-        let program_times = program_time_collections.map(x => x.split("<hr />"));
-        for (let data_row of zip(dates, program_times)) {
-          program_data.push({
-            'date_raw': data_row[0],
-            'times_raw': data_row[1],
-            'program_age_info': program_age_info
-          });
-        }
-      } 
-    }
-  
-    // Logger.log(program_data);
-  
-    // convert program times into Date object pairs
-    let program_data_D = program_data.map(function(program_date){
-      if (!program_date['times_raw'] || program_date['times_raw'][0] === "&nbsp;") return null; // catch &nbsp;
-      let date_pairs = parseDates(program_date['date_raw'],program_date['times_raw']);
-      return date_pairs.map(function(date_pair){
-        return {
-        'start_Date': date_pair[0],
-        'end_Date': date_pair[1],
-        'program_title': `${course_title} ${program_date['program_age_info']}`,
-        'program_age_info': program_date['program_age_info']
-        };
-      });
-    }).filter(e => !!e).flat();
+      const re_program_rows = new RegExp(
+        String.raw`<tr>.*?<th.*?class="coursetitlecell".*?>.*?<span.*?class="coursetitlecol".*?>` +
+        course_title +
+        String.raw`<\/span>[\s\S]+?<span.*?class="courseagecol".*?>(?<age_info>.*?)<\/span>[\s\S]+?<\/tr>`,
+        'gm');
     
-    // Logger.log(program_data_D);
+      // get html from facility page and pull out schedule section
+      Logger.log(`Pulling data on ${program_type}: ${course_title} from ${facility_url}`);
+      let response = UrlFetchApp.fetch(facility_url);
+      let response_text = response.getContentText("UTF-8");
+      let facility_name = response_text.match(re_facility_name).groups['name'];
+      Logger.log(`(${facility_name})`);
+      let facility_address = response_text.match(re_facility_address).groups['address'];
+      let program_dropin = response_text.match(re_program_dropin)[0];
+      let program_weeks = program_dropin.matchAll(re_program_weeks);
+    
+      // parse schedule section
+      let program_data = [];
+      let result_dates = [];
+      for (let [program_week] of program_weeks) {
+        // grab dates from header row
+        let date_row = program_week.match(re_date_row)[0];
+        let dates = [...date_row.matchAll(re_dates)].map(x => x[1]);
+        result_dates = result_dates.concat(dates);
+    
+        // grab times from appropriate program rows
+        let program_rows = [...program_week.matchAll(re_program_rows)];
+        if (program_rows.length > 0) {
+          for (let program_row of program_rows) {
+            // check age info matches if specified
+            let program_age_info = program_row.groups['age_info'].trim();
+            if (age_info && (program_age_info !== age_info)) continue;
+            
+            // collect dates and times for program week
+            let program_time_collections = [...program_row[0].matchAll(re_program_time_collections)].map(x => x[1]);
+            let program_times = program_time_collections.map(x => x.split("<hr />"));
+            for (let data_row of zip(dates, program_times)) {
+              program_data.push({
+                'date_raw': data_row[0],
+                'times_raw': data_row[1],
+                'program_age_info': program_age_info
+              });
+            }
+          } 
+        }
+      }
+      
+      // convert date headers into Date objects
+      let result_dates_D = result_dates.map((datestring) => parseDates(datestring)[0]);
   
-    // Update Google Calendar
-    const input_calendar = CalendarApp.getCalendarById(calendar_id);
-    const event_location = facility_name + ", " + facility_address;
+      // skip calendar updates if there are no results
+      // Note: this may result in cancelled events not being removed from the calendar
+      if (program_data.length === 0) continue;
   
-    // delete current calendar events within input timeframe
-    let earliest_date = program_data_D.reduce((p, c) => c['start_Date'] < p['start_Date'] ? c : p)['start_Date'];
-    let latest_date   = program_data_D.reduce((p, c) => c['end_Date'] > p['end_Date'] ? c : p)['end_Date'];
-    let existing_events = input_calendar.getEvents(earliest_date, latest_date);
-    let program_titles = program_data_D.map(e => e['program_title']).filter(onlyUnique);
+      // convert program times into Date object pairs
+      let program_data_D = program_data.map(function(program_date){
+        if (!program_date['times_raw'] || program_date['times_raw'][0] === "&nbsp;") return null; // catch &nbsp;
+        let date_pairs = parseDates(program_date['date_raw'],program_date['times_raw']);
+        return date_pairs.map(function(date_pair){
+          return {
+          'start_Date': date_pair[0],
+          'end_Date': date_pair[1],
+          'program_title': `${course_title} ${program_date['program_age_info']}`,
+          'program_age_info': program_date['program_age_info']
+          };
+        });
+      }).filter(e => !!e).flat();
   
-    Logger.log(`Deleting existing events...`);
-    for (let existing_event of existing_events) {
-      if (program_titles.includes(existing_event.getTitle()) && existing_event.getLocation() === event_location) {
-        existing_event.deleteEvent();
+      // Update Google Calendar
+      const input_calendar = CalendarApp.getCalendarById(calendar_id);
+      const event_location = facility_name + ", " + facility_address;
+    
+      // delete current calendar events within result timeframe
+      let earliest_date = result_dates_D.reduce((p, c) => c < p ? c : p);
+      let latest_date = result_dates_D.reduce((p, c) => c > p ? c : p);
+      let existing_events = input_calendar.getEvents(earliest_date, latest_date);
+      let program_titles = program_data_D.map(e => e['program_title']).filter(onlyUnique);
+    
+      Logger.log(`Deleting existing events...`);
+      for (let existing_event of existing_events) {
+        if (program_titles.includes(existing_event.getTitle()) && existing_event.getLocation() === event_location) {
+          existing_event.deleteEvent();
+        }
+      }
+      
+      // add new calendar events within timeframe
+      Logger.log(`Adding or updating ${program_data_D.length} events...`);
+      for (let {start_Date, end_Date, program_age_info} of program_data_D) {
+        let event = input_calendar.createEvent(
+          `${course_title} ${program_age_info}`,
+          start_Date,
+          end_Date,
+          {
+            location: event_location,
+            description: `More details at: ${facility_url}`
+          }
+        );
+        if (color) event.setColor(color);
       }
     }
-    
-    // add new calendar events within timeframe
-    Logger.log(`Adding or updating ${program_data_D.length} events...`);
-    for (let {start_Date, end_Date, program_age_info} of program_data_D) {
-      let event = input_calendar.createEvent(
-        `${course_title} ${program_age_info}`,
-        start_Date,
-        end_Date,
-        {
-          location: event_location,
-          description: `More details at: ${facility_url}`
-        }
-      );
-      if (color) event.setColor(color);
+  }
+      
+  // Utility Functions
+  const zip = (a, b) => a.map((k, i) => [k, b[i]]);
+  
+  function onlyUnique(value, index, self) {
+    return self.indexOf(value) === index;
+  }
+  
+  /**
+   * Returns an array of Date objects parsed from text strings
+   * 
+   * @param {string} date Date text string without a year, e.g. "Mon Aug 28"
+   * @param {string} [times] Optional: time string, e.g. "7 - 9:15am"
+   * @return {array}
+   */
+  function parseDates(date, times) {
+    // parse date
+    let current_date = new Date().toString();
+    let current_year = current_date.slice(11,15);
+    let current_month = current_date.slice(4,7);
+    let date_year = current_year;
+  
+    // catch year crossover
+    if (current_month === "Dec" && date.slice(4,7) === "Jan") {
+      date_year = (Number(date_year) + 1).toString();
     }
-  }
-}
-    
-// Utility Functions
-const zip = (a, b) => a.map((k, i) => [k, b[i]]);
-
-function onlyUnique(value, index, self) {
-  return self.indexOf(value) === index;
-}
-
-function parseDates(date, times) {
-  // parse date
-  let current_date = new Date().toString();
-  let current_year = current_date.slice(11,15);
-  let current_month = current_date.slice(4,7);
-  let date_year = current_year;
-
-  // catch year crossover
-  if (current_month === "Dec" && date.slice(4,7) === "Jan") {
-    date_year = (Number(date_year) + 1).toString();
-  }
-
-  // parse times
-  const re_time = /(?<hours>\d{1,2}):?(?<minutes>\d{2})?(?<am_pm>am|pm)?/gi;
-  let times_D = [];
-
-  for (let time of times) {
-    [start, end] = [...time.matchAll(re_time)];
-
-    let end_D = new Date([
-      date + ", ",
-      date_year + " ",
-      end.groups['hours'] + ":",
-      end.groups['minutes'] ? end.groups['minutes'] : "00",
-      " ",
-      end.groups['am_pm']
-    ].join(""));
-
-    let start_D = new Date([
-      date + ", ",
-      date_year + " ",
-      start.groups['hours'] + ":",
-      start.groups['minutes'] ? start.groups['minutes'] : "00",
-      " ",
-      start.groups['am_pm'] ? start.groups['am_pm'] : end.groups['am_pm']
-    ].join(""));
-
-    times_D.push([start_D, end_D]);
-  }
-
-  return times_D;
-}
-
+  
+    // return date only if no times
+    if (times === undefined) {
+      return [new Date(date + ", " + date_year)];
+    }
+  
+    // parse times
+    const re_time = /(?<hours>\d{1,2}):?(?<minutes>\d{2})?(?<am_pm>am|pm)?/gi;
+    let times_D = [];
+  
+    for (let time of times) {
+      [start, end] = [...time.matchAll(re_time)];
+  
+      let end_D = new Date([
+        date + ", ",
+        date_year + " ",
+        end.groups['hours'] + ":",
+        end.groups['minutes'] ? end.groups['minutes'] : "00",
+        " ",
+        end.groups['am_pm']
+      ].join(""));
+  
+      let start_D = new Date([
+        date + ", ",
+        date_year + " ",
+        start.groups['hours'] + ":",
+        start.groups['minutes'] ? start.groups['minutes'] : "00",
+        " ",
+        start.groups['am_pm'] ? start.groups['am_pm'] : end.groups['am_pm']
+      ].join(""));
+  
+      times_D.push([start_D, end_D]);
+    }
+  
+    return times_D;
+  }  
 
 /*
 Optional Utility - delete all calendar events
