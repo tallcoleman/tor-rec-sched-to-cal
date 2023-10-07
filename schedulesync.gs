@@ -70,7 +70,9 @@ function updateSchedules() {
       let facility_name = response_text.match(re_facility_name).groups['name'];
       Logger.log(`(${facility_name})`);
       let facility_address = response_text.match(re_facility_address).groups['address'];
-      let program_dropin = response_text.match(re_program_dropin)[0];
+      let program_dropin = response_text.match(re_program_dropin)?.[0];
+      // skip to next value in `programs` if there is no drop-in page
+      if (!program_dropin) continue;
       let program_weeks = program_dropin.matchAll(re_program_weeks);
     
       // parse schedule section
