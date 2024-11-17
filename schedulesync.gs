@@ -1,227 +1,426 @@
 /*
 Script to pull drop-in program schedules from a City of Toronto webpage
-Author: Ben Coleman (ben[dot]coleman[at]alum[dot]utoronto[dot]ca)
+Author: Ben Coleman (https://github.com/tallcoleman)
 */
 
-// Fill out the config details in the 'programs' constant and create a weekly trigger to run this function
+/**
+ * Update this function to select the programs you want to add to your calendar
+ * Properties in each "programs" variable should be as follows:
+ * - locationID: number at the very end of the webpage for the facility, e.g. 189 for https://www.toronto.ca/explore-enjoy/parks-recreation/places-spaces/parks-and-recreation-facilities/location/?id=189
+ * - courseTitle: Title in the "Program" column of the schedule, e.g. "Lane Swim" or "Aquafit: Shallow". Do not include the age information below the course title.
+ * - calendarID: Calendar ID from the "Integrate calendar" section of your Google Calendar settings
+ * - userAge: OPTIONAL, e.g. your age or the age of a family member, in years, helps to filter out irrelevant programs with the same courseTitle
+ * - color: OPTIONAL, color to use for the Google Calendar event, see https://github.com/tallcoleman/tor-rec-sched-to-cal/tree/main?tab=readme-ov-file#guide-to-updated-google-calendar-colors
+ */
 function updateSchedules() {
-  /*
-    CONFIGURATION
-    -------------
-  
-    calendar_id: Calendar ID from the "Integrate calendar" section of your Google Calendar settings.
-  
-    facility_url: Webpage address for the City of Toronto recreation facility you want to sync a schedule from. The full list of facilities can be found here: https://www.toronto.ca/data/parks/prd/facilities/recreationcentres/index.html
-    
-    program_type: 'Arts', 'Fitness', 'General Interest', 'Skating', 'Sports', or 'Swimming'
-  
-    course_title: Title in the "Program" column of the schedule, e.g. "Lane Swim" or "Aquafit: Shallow". Do not include the age information below the course title.
-
-    age_info: (Optional) Age information specified below the course title. Only use this if there are multiple courses with the same title but intended for different ages (e.g. "Fitness Workout /  (18yrs and over)" and "Fitness Workout /  (60yrs and over)").
-  
-    color: (Optional) a number (as a string) from this list: https://github.com/tallcoleman/tor-rec-sched-to-cal#guide-to-updated-google-calendar-colors, e.g. "1" 
-  */
   const programs = [
     {
-      'calendar_id': "",
-      'facility_url': "",
-      'program_type': "",
-      'course_title': "",
-      'age_info': "", // optional
-      'color': "" // optional
-    }
+      // EXAMPLE: delete or change for your desired programs
+      locationID: 189,
+      courseTitle: "Lane Swim",
+      calendarID: "LONG_STRING_OF_LETTERS_AND_NUMBERS@group.calendar.google.com",
+      userAge: 40,
+      color: "peacock",
+    },
   ];
-  
-  // update schedules
   scheduleSync(programs);
-  }
-  
-  
-  function scheduleSync(programs) {
-    // generic regular expressions
-    const re_facility_name = /<div class="accbox">.*?<h1>\s*?(?<name>\S.*?)\s*?<\/h1>/s;
-    const re_facility_address = /<div class="accbox">.*?Address:.*?<span>\s+?(?<address>\S.*?)\s+?<\/strong>/s;
-    const re_date_row = /<thead>[\s\S]+?<\/thead>/m;
-    const re_dates = /<th scope.*?>([\w\s]+?\d+?)<\/th>/gm;
-    const re_program_time_collections = /<td class="coursehrscol">(.*?)<\/td>/gm;
-  
-    for (let {calendar_id, facility_url, program_type, course_title, age_info, color} of programs) {
-      // per-program regular expressions
-      const re_program_dropin = new RegExp(
-        String.raw`<div.*?id="content_dropintype_` +
-        program_type.split(' ')[0] +
-        String.raw`".*?>[\s\S]+?<\/div>`,
-        'm');
-      const re_program_weeks = new RegExp(
-        String.raw`<tr.*?id="dropin_` +
-        program_type.split(' ')[0] +
-        String.raw`_\d".*?>[\s\S]*?<td>[\s\S]*?<table>[\s\S]+?<\/table>[\s\S]*?<\/td>[\s\S]*?<\/tr>`,
-      'gm');
-      const re_program_rows = new RegExp(
-        String.raw`<tr>.*?<th.*?class="coursetitlecell".*?>.*?<span.*?class="coursetitlecol".*?>` +
-        course_title +
-        String.raw`<\/span>[\s\S]+?<span.*?class="courseagecol".*?>(?<age_info>.*?)<\/span>[\s\S]+?<\/tr>`,
-        'gm');
-    
-      // get html from facility page and pull out schedule section
-      Logger.log(`Pulling data on ${program_type}: ${course_title} from ${facility_url}`);
-      let response = UrlFetchApp.fetch(facility_url);
-      let response_text = response.getContentText("UTF-8");
-      let facility_name = response_text.match(re_facility_name).groups['name'];
-      Logger.log(`(${facility_name})`);
-      let facility_address = response_text.match(re_facility_address).groups['address'];
-      let program_dropin = response_text.match(re_program_dropin)?.[0];
-      // skip to next value in `programs` if there is no drop-in page
-      if (!program_dropin) continue;
-      let program_weeks = program_dropin.matchAll(re_program_weeks);
-    
-      // parse schedule section
-      let program_data = [];
-      let result_dates = [];
-      for (let [program_week] of program_weeks) {
-        // grab dates from header row
-        let date_row = program_week.match(re_date_row)[0];
-        let dates = [...date_row.matchAll(re_dates)].map(x => x[1]);
-        result_dates = result_dates.concat(dates);
-    
-        // grab times from appropriate program rows
-        let program_rows = [...program_week.matchAll(re_program_rows)];
-        if (program_rows.length > 0) {
-          for (let program_row of program_rows) {
-            // check age info matches if specified
-            let program_age_info = program_row.groups['age_info'].trim();
-            if (age_info && (program_age_info !== age_info)) continue;
-            
-            // collect dates and times for program week
-            let program_time_collections = [...program_row[0].matchAll(re_program_time_collections)].map(x => x[1]);
-            let program_times = program_time_collections.map(x => x.split("<hr />"));
-            for (let data_row of zip(dates, program_times)) {
-              program_data.push({
-                'date_raw': data_row[0],
-                'times_raw': data_row[1],
-                'program_age_info': program_age_info
-              });
-            }
-          } 
-        }
-      }
-      
-      // convert date headers into Date objects
-      let result_dates_D = result_dates.map((datestring) => parseDates(datestring)[0]);
-  
-      // skip calendar updates if there are no results
-      // Note: this may result in cancelled events not being removed from the calendar
-      if (program_data.length === 0) continue;
-  
-      // convert program times into Date object pairs
-      let program_data_D = program_data.map(function(program_date){
-        if (!program_date['times_raw'] || program_date['times_raw'][0] === "&nbsp;") return null; // catch &nbsp;
-        let date_pairs = parseDates(program_date['date_raw'],program_date['times_raw']);
-        return date_pairs.map(function(date_pair){
-          return {
-          'start_Date': date_pair[0],
-          'end_Date': date_pair[1],
-          'program_title': `${course_title} ${program_date['program_age_info']}`,
-          'program_age_info': program_date['program_age_info']
-          };
-        });
-      }).filter(e => !!e).flat();
-  
-      // Update Google Calendar
-      const input_calendar = CalendarApp.getCalendarById(calendar_id);
-      const event_location = facility_name + ", " + facility_address;
-    
-      // delete current calendar events within result timeframe
-      let earliest_date = result_dates_D.reduce((p, c) => c < p ? c : p);
-      let latest_date = result_dates_D.reduce((p, c) => c > p ? c : p);
-      let existing_events = input_calendar.getEvents(earliest_date, latest_date);
-      let program_titles = program_data_D.map(e => e['program_title']).filter(onlyUnique);
-    
-      Logger.log(`Deleting existing events...`);
-      for (let existing_event of existing_events) {
-        if (program_titles.includes(existing_event.getTitle()) && existing_event.getLocation() === event_location) {
-          existing_event.deleteEvent();
-        }
-      }
-      
-      // add new calendar events within timeframe
-      Logger.log(`Adding or updating ${program_data_D.length} events...`);
-      for (let {start_Date, end_Date, program_age_info} of program_data_D) {
-        let event = input_calendar.createEvent(
-          `${course_title} ${program_age_info}`,
-          start_Date,
-          end_Date,
-          {
-            location: event_location,
-            description: `More details at: ${facility_url}`
-          }
-        );
-        if (color) event.setColor(color);
-      }
+}
+
+/* 
+  KEY URLS
+  ========
+*/
+
+const DROP_IN_SCHEDULE_URL =
+  "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/da46e4ac-d4ab-4b1c-b139-6362a0a43b3c/resource/65bde5a9-6f24-4d2b-8f5c-e5c4693d225b/download/Drop-in.json";
+const LOCATION_DATA_URL =
+  "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/da46e4ac-d4ab-4b1c-b139-6362a0a43b3c/resource/168656d5-ea1c-4f32-ae4a-3b2d8a7ab263/download/Locations.json";
+const FACILITY_BASE_URL =
+  "https://www.toronto.ca/explore-enjoy/parks-recreation/places-spaces/parks-and-recreation-facilities/location/?id=";
+
+/* 
+  TYPE DEFINITIONS
+  ================
+*/
+
+/**
+ * @typedef {Object} DropInSchedule
+ * @property {number=} _id
+ * @property {number} `Location ID`
+ * @property {number} Course_ID
+ * @property {string} `Course Title`
+ * @property {string} `Age Min` - Age, in number of months, or "None"
+ * @property {string} `Age Max` - Age, in number of months, or "None"
+ * @property {string} `Date From` - "YYYYMMDD" format
+ * @property {string} `Date Range` - "MMM D to MMM D" format
+ * @property {string} `Start Date Time` - ISO Datetime, with no tz or offset
+ * @property {number} `Start Hour` - 24h clock
+ * @property {number} `Start Minute`
+ * @property {number} `End Hour` - 24h clock
+ * @property {number} `End Min`
+ * @property {"Skating" | "General" | "Arts" | "Sports" | "Fitness" | "Swimming"} Category
+ * @property {string=} `First Date` - ISO Date with no tz or offset
+ * @property {string=} `Last Date` - ISO Date with no tz or offset
+ */
+
+/**
+ * @typedef {Object} Location
+ * @property {number=} `_id`
+ * @property {number} `Location ID`
+ * @property {number=} `Parent Location ID`
+ * @property {string} `Location Name`
+ * @property {string} `Location Type` - uses "None" for null
+ * @property {"Fully Accessible" | "Partially Accessible" | "None"} `Accessibility`
+ * @property {string} `Intersection` - uses "None" for null
+ * @property {string} `TTC Information` - uses "None" for null
+ * @property {string} `District` - uses "None" for null
+ * @property {string} `Street No` - uses "None" for null
+ * @property {string} `Street No Suffix` - uses "None" for null
+ * @property {string} `Street Name` - uses "None" for null
+ * @property {string} `Street Type` - uses "None" for null
+ * @property {string} `Street Direction` - uses "None" for null
+ * @property {string} `Postal Code` - uses "None" for null
+ * @property {string} `Description`  - uses "None" for null
+ */
+
+/**
+ * @typedef {Object} ProgramQuery
+ * @property {number} locationID
+ * @property {string} courseTitle
+ * @property {string} calendarID - Calendar ID under the Integrate Calendar section of Google Calendar options
+ * @property {number=} userAge - age in years
+ * @property {string=} color - calendar event color, see https://developers.google.com/apps-script/reference/calendar/event-color
+ */
+
+/**
+ * @typedef {Object} EventDetails
+ * @property {string} title - the title of the event
+ * @property {Date} startTime - the date and time when the event starts
+ * @property {Date} endTime - the date and time when the event ends
+ * @property {EventOptions} options - advanced parameters
+ */
+
+/**
+ * @typedef {Object} EventOptions
+ * @property {string} description	- the description of the event
+ * @property {string} location - the location of the event
+ * @property {string} guests - a comma-separated list of email addresses that should be added as guests
+ * @property {boolean} sendInvites - whether to send invitation emails (default: false)
+ */
+
+/* 
+  FUNCTIONS
+  =========
+*/
+
+/**
+ * Gets drop-in program schedules and updates them in the specified Google Calendars
+ * @param {Array<ProgramQuery>} programs
+ */
+function scheduleSync(programs) {
+  const currentSchedule = getDropInSchedule();
+  const locations = getFacilityLocations();
+
+  for (let { locationID, courseTitle, calendarID, userAge, color } of programs) {
+    const programSchedule = currentSchedule.filter(
+      (entry) =>
+        entry["Location ID"] === locationID &&
+        entry["Course Title"] === courseTitle &&
+        userIsInAgeRange(entry, userAge)
+    );
+
+    // skip calendar updates if there are no results
+    // Note: this may result in cancelled events not being removed from the calendar
+    if (programSchedule.length === 0) continue;
+
+    const programEvents = programSchedule.map((x) => convertEntryToEvent(x, locations));
+
+    // delete current calendar events within result timeframe
+    const firstDate = programSchedule
+      .map((e) => new Date(e["First Date"]))
+      .reduce((p, c) => (c < p ? c : p));
+    const lastDate = programSchedule
+      .map((e) => new Date(e["Last Date"]))
+      .reduce((p, c) => (c > p ? c : p));
+    const eventTitles = [...new Set(programEvents.map((e) => e.title))];
+    const eventLocation = programEvents[0]["options"]["location"];
+    deleteExistingEvents(firstDate, lastDate, eventTitles, eventLocation, calendarID);
+
+    // add new calendar events within timeframe
+    Logger.log(`Adding or updating ${programEvents.length} events...`);
+    for (const event of programEvents) {
+      createEvent(event, calendarID, color);
     }
   }
-      
-  // Utility Functions
-  const zip = (a, b) => a.map((k, i) => [k, b[i]]);
-  
-  function onlyUnique(value, index, self) {
-    return self.indexOf(value) === index;
+}
+
+/**
+ * Requests and returns the drop-in schedule from the Toronto Open Data Portal (https://open.toronto.ca/dataset/registered-programs-and-drop-in-courses-offering/).
+ * @param {string=} url - URL of the Open Data Portal data source
+ * @returns {Array<DropInSchedule>}
+ */
+function getDropInSchedule(url = DROP_IN_SCHEDULE_URL) {
+  let response = UrlFetchApp.fetch(url);
+  if (response.getResponseCode() !== 200) {
+    throw new Error(
+      `Request to Toronto open data portal for drop in schedule failed with response code ${response.getResponseCode()}`
+    );
   }
-  
-  /**
-   * Returns an array of Date objects parsed from text strings
-   * 
-   * @param {string} date Date text string without a year, e.g. "Mon Aug 28"
-   * @param {string} [times] Optional: time string, e.g. "7 - 9:15am"
-   * @return {array}
-   */
-  function parseDates(date, times) {
-    // parse date
-    let current_date = new Date().toString();
-    let current_year = current_date.slice(11,15);
-    let current_month = current_date.slice(4,7);
-    let date_year = current_year;
-  
-    // catch year crossover
-    if (current_month === "Dec" && date.slice(4,7) === "Jan") {
-      date_year = (Number(date_year) + 1).toString();
+  let data = JSON.parse(response);
+  return data;
+}
+
+/**
+ * Requests and returns the facility locations from the Toronto Open Data Portal ()
+ * @param {string=} url - URL of the Open Data Portal data source
+ * @returns {Array<Location>}
+ */
+function getFacilityLocations(url = LOCATION_DATA_URL) {
+  let response = UrlFetchApp.fetch(url);
+  if (response.getResponseCode() !== 200) {
+    throw new Error(
+      `Request to Toronto open data portal for locations failed with response code ${response.getResponseCode()}`
+    );
+  }
+  let data = JSON.parse(response);
+  return data;
+}
+
+/**
+ * Test whether user age fits program minimum and maximum age range
+ * @param {DropInSchedule} entry
+ * @param {number} userAge
+ * @returns {boolean}
+ */
+function userIsInAgeRange(entry, userAge) {
+  if (userAge === null) return true;
+
+  const userAgeMonths = userAge * 12;
+  let minTest, maxTest;
+  const entryAgeMin = Number(entry["Age Min"]);
+  const entryAgeMax = Number(entry["Age Max"]);
+
+  if (entry["Age Min"] === "None") minTest = true;
+  else if (Number.isInteger(entryAgeMin)) {
+    minTest = userAgeMonths >= entryAgeMin;
+  } else {
+    throw new Error(
+      `Unable to determine if user age matches program. User age: ${userAge} years, Program age min: ${entry["Age Min"]} months, for ${entry["Course Title"]} at location ${entry["Location ID"]}`
+    );
+  }
+
+  if (entry["Age Max"] === "None") maxTest = true;
+  else if (Number.isInteger(entryAgeMax)) {
+    maxTest = userAgeMonths <= entryAgeMax;
+  } else {
+    throw new Error(
+      `Unable to determine if user age matches program. User age: ${userAge} years, Program age max: ${entry["Age Max"]} months, for ${entry["Course Title"]} at location ${entry["Location ID"]}`
+    );
+  }
+
+  return minTest && maxTest;
+}
+
+/**
+ * Convert schedule entry into calendar event parameters
+ * @param {DropInSchedule} entry
+ * @returns {EventDetails}
+ */
+function convertEntryToEvent(entry, locations) {
+  const title = `${entry["Course Title"]} (${generateAgeRangeDescription(entry)})`;
+  const startTime = new Date(entry["Start Date Time"]);
+  let endTime = new Date(startTime);
+  endTime.setHours(entry["End Hour"], entry["End Min"] ?? 0);
+  const description = `More details at ${FACILITY_BASE_URL}${entry["Location ID"]}`;
+  const location = getLocationAddress(entry["Location ID"], locations);
+
+  return {
+    title: title,
+    startTime: startTime,
+    endTime: endTime,
+    options: {
+      description: description,
+      location: location,
+    },
+  };
+}
+
+/**
+ * Delete calendar events within a specified date range if they have matching titles
+ * @param {Date} firstDate
+ * @param {Date} lastDate
+ * @param {Array<string>} eventTitles
+ * @param {string} eventLocation
+ * @param {string} calendarID
+ */
+function deleteExistingEvents(
+  firstDate,
+  lastDate,
+  eventTitles,
+  eventLocation,
+  calendarID
+) {
+  const inputCalendar = CalendarApp.getCalendarById(calendarID);
+  const existingEvents = inputCalendar.getEvents(firstDate, lastDate);
+
+  Logger.log(`Deleting existing events...`);
+  for (let existingEvent of existingEvents) {
+    if (
+      eventTitles.includes(existingEvent.getTitle()) &&
+      existingEvent.getLocation() === eventLocation
+    ) {
+      existingEvent.deleteEvent();
     }
-  
-    // return date only if no times
-    if (times === undefined) {
-      return [new Date(date + ", " + date_year)];
-    }
-  
-    // parse times
-    const re_time = /(?<hours>\d{1,2}):?(?<minutes>\d{2})?(?<am_pm>am|pm)?/gi;
-    let times_D = [];
-  
-    for (let time of times) {
-      [start, end] = [...time.matchAll(re_time)];
-  
-      let end_D = new Date([
-        date + ", ",
-        date_year + " ",
-        end.groups['hours'] + ":",
-        end.groups['minutes'] ? end.groups['minutes'] : "00",
-        " ",
-        end.groups['am_pm']
-      ].join(""));
-  
-      let start_D = new Date([
-        date + ", ",
-        date_year + " ",
-        start.groups['hours'] + ":",
-        start.groups['minutes'] ? start.groups['minutes'] : "00",
-        " ",
-        start.groups['am_pm'] ? start.groups['am_pm'] : end.groups['am_pm']
-      ].join(""));
-  
-      times_D.push([start_D, end_D]);
-    }
-  
-    return times_D;
-  }  
+  }
+}
+
+/**
+ * Create a calendar event based on supplied event details
+ * @param {EventDetails} eventDetails
+ * @param {string} calendarID
+ * @param {string=} color
+ * @returns {Object} event
+ */
+function createEvent(eventDetails, calendarID, color) {
+  const inputCalendar = CalendarApp.getCalendarById(calendarID);
+  const event = inputCalendar.createEvent(
+    eventDetails["title"],
+    eventDetails["startTime"],
+    eventDetails["endTime"],
+    eventDetails["options"]
+  );
+  if (color) event.setColor(getCalendarColor(color));
+  return event;
+}
+
+/**
+ * Converts Location data into an address string. Assumes address is in Toronto, ON.
+ * @param {number} location ID
+ * @param {Array<Location>} locations
+ * @returns {string}
+ */
+function getLocationAddress(locationID, locations) {
+  const [location] = locations.filter((l) => l["Location ID"] === locationID);
+
+  const convertNull = (x) => (x === "None" ? null : x);
+  const streetNumber = convertNull(location["Street No"]);
+  const streetNumberSuffix = convertNull(location["Street No Suffix"]);
+  const streetName = convertNull(location["Street Name"]);
+  const streetType = convertNull(location["Street Type"]);
+  const streetDirection = convertNull(location["Street Direction"]);
+  const postalCode = convertNull(location["Postal Code"]);
+
+  const address = `${location["Location Name"]}, ${[streetNumber, streetNumberSuffix, streetName, streetType, streetDirection].join(" ").trim()}, Toronto, ON  ${postalCode}`;
+  return address;
+}
+
+/**
+ * Generate a description of a program's age range
+ * @param {DropInSchedule} entry
+ * @returns {string}
+ */
+function generateAgeRangeDescription(entry) {
+  const entryAgeMin = Number(entry["Age Min"]);
+  const entryAgeMax = Number(entry["Age Max"]);
+
+  if (entry["Age Min"] === "None" && entry["Age Max"] === "None") {
+    return "All Ages";
+  } else if (entry["Age Min"] === "None" && Number.isInteger(entryAgeMax)) {
+    return `Ages ${generateAgeDescription(entryAgeMax)} and under`;
+  } else if (Number.isInteger(entryAgeMin) && entry["Age Max"] == "None") {
+    return `Ages ${generateAgeDescription(entryAgeMin)} and over`;
+  } else if (Number.isInteger(entryAgeMin) && Number.isInteger(entryAgeMax)) {
+    return `Ages ${generateAgeDescription(entryAgeMin)} to ${generateAgeDescription(entryAgeMax)}`;
+  } else {
+    throw new Error(
+      `Unable to generate age range description based on min age ${entry["Age Min"]} months and max age ${entry["Age Max"]} months`
+    );
+  }
+}
+
+/**
+ * Generate an age description based on an age specified in number of months
+ * @param {number} ageInMonths
+ * @returns {string}
+ */
+function generateAgeDescription(ageInMonths) {
+  const years = Math.floor(ageInMonths / 12);
+  const months = ageInMonths % 12;
+  const yearsDescription = years > 0 ? `${years} years` : null;
+  const monthsDescription = months > 0 ? `${months} months` : null;
+  return [yearsDescription, monthsDescription].join(" ").trim();
+}
+
+/**
+ * Return calendar color enum based on various string or number inputs
+ * @param {string | number} input
+ * @returns {string} CalendarApp.EventColor enum
+ */
+function getCalendarColor(input) {
+  inputCaseInsensitive = String(input).toLowerCase().trim();
+  let calendarColor;
+  switch (inputCaseInsensitive) {
+    case CalendarApp.EventColor.PALE_BLUE:
+    case "pale blue":
+    case "lavender":
+      calendarColor = CalendarApp.EventColor.PALE_BLUE;
+      break;
+    case CalendarApp.EventColor.PALE_GREEN:
+    case "pale green":
+    case "sage":
+      calendarColor = CalendarApp.EventColor.PALE_GREEN;
+      break;
+    case CalendarApp.EventColor.MAUVE:
+    case "mauve":
+    case "grape":
+      calendarColor = CalendarApp.EventColor.MAUVE;
+      break;
+    case CalendarApp.EventColor.PALE_RED:
+    case "pale red":
+    case "flamingo":
+      calendarColor = CalendarApp.EventColor.PALE_RED;
+      break;
+    case CalendarApp.EventColor.YELLOW:
+    case "yellow":
+    case "banana":
+      calendarColor = CalendarApp.EventColor.YELLOW;
+      break;
+    case CalendarApp.EventColor.ORANGE:
+    case "orange":
+    case "tangerine":
+      calendarColor = CalendarApp.EventColor.ORANGE;
+      break;
+    case CalendarApp.EventColor.CYAN:
+    case "cyan":
+    case "peacock":
+      calendarColor = CalendarApp.EventColor.CYAN;
+      break;
+    case CalendarApp.EventColor.GRAY:
+    case "gray":
+    case "grey":
+    case "graphite":
+      calendarColor = CalendarApp.EventColor.GRAY;
+      break;
+    case CalendarApp.EventColor.BLUE:
+    case "blue":
+    case "blueberry":
+      calendarColor = CalendarApp.EventColor.BLUE;
+      break;
+    case CalendarApp.EventColor.GREEN:
+    case "green":
+    case "basil":
+      calendarColor = CalendarApp.EventColor.GREEN;
+      break;
+    case CalendarApp.EventColor.RED:
+    case "red":
+    case "tomato":
+      calendarColor = CalendarApp.EventColor.RED;
+      break;
+    default:
+      calendarColor = null;
+  }
+  return calendarColor;
+}
 
 /*
 Optional Utility - delete all calendar events
@@ -232,24 +431,22 @@ To use:
 - paste in the relevant Calendar ID from the "Integrate calendar" section of your Google Calendar settings
 - select clearCalendar from the function drop down in Google Apps Script editor
 - select "▶ Run"
-*/ 
-function clearCalendar() {
-  // calendar to delete events from
-  const calendar_id = "";
+*/
+function clearCalendar(calendarID = "") {
   // date range to delete
-  const start_date = new Date("January 1 2020");
-  const end_date = new Date("December 31 2030");
+  const startDate = new Date("January 1 2020");
+  const endDate = new Date("December 31 2030");
 
   // failsafe
   const yourEmail = Session.getActiveUser().getEmail();
-  if (yourEmail == calendar_id) {
-    Logger.log("Events not deleted - this is your account's main calendar.")
+  if (yourEmail == calendarID) {
+    Logger.log("Events not deleted - this is your account's main calendar.");
     return;
   }
 
   // get events in date range and delete
-  const calendar = CalendarApp.getCalendarById(calendar_id);
-  let events = calendar.getEvents(start_date, end_date);
+  const calendar = CalendarApp.getCalendarById(calendarID);
+  let events = calendar.getEvents(startDate, endDate);
   for (let event of events) {
     event.deleteEvent();
   }
