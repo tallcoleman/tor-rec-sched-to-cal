@@ -2,6 +2,8 @@
 
  A Google Apps Script to sync a City of Toronto recreation program schedule (e.g. lane swim times) to your Google calendar.
 
+ This script uses Open Data from the City of Toronto, specifically the "Facilities" and "Drop-In" datasets from https://open.toronto.ca/dataset/registered-programs-and-drop-in-courses-offering/.
+
  ## Installation
 
 1. Open Google Apps Script at [script.google.com](https://script.google.com) and log in to your Google Account if neccessary.
@@ -38,56 +40,56 @@
 
 ## Example Configurations
 
-One schedule, e.g. the regular lane swim at [North Toronto Memorial Community Centre](https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html):
+For all of these:
+
+- The number for **locationID** can be found at the very end of the webpage URL
+- The value for **calendarID** can be found in the "Integrate calendar" section of your Google Calendar settings
+- **userAge** is optional and helps to select programs within a relevant age range
+- **color** is also optional
+
+One schedule, e.g. the regular lane swim at [North Toronto Memorial Community Centre](https://www.toronto.ca/explore-enjoy/parks-recreation/places-spaces/parks-and-recreation-facilities/location/?id=189):
 
 ```js
 const programs = [
     {
-      'calendar_id': "<example>@group.calendar.google.com",
-      'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
-      'program_type': "Swimming",
-      'course_title': "Lane Swim",
-      'age_info': "",
-      'color': ""
-    }
+      locationID: 189,
+      courseTitle: "Lane Swim",
+      calendarID: "LONG_STRING_OF_LETTERS_AND_NUMBERS@group.calendar.google.com",
+      userAge: 40,
+    },
   ];
 ```
 
-Multiple schedules (can be in the same calendar), e.g. Bridge and Gentle AquaFit at North Toronto Memorial, with AquaFit events [coloured "Lavender"](#guide-to-updated-google-calendar-colors):
+Multiple schedules (can be in the same calendar), e.g. Bridge and Gentle AquaFit at North Toronto Memorial, with AquaFit events [coloured "Peacock"](#guide-to-updated-google-calendar-colors):
 
 ```js
 const programs = [
     {
-      'calendar_id': "<example>@group.calendar.google.com",
-      'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
-      'program_type': "General Interest",
-      'course_title': "Cards: Bridge",
-      'age_info': "",
-      'color': ""
+      locationID: 189,
+      courseTitle: "Cards: Bridge",
+      calendarID: "LONG_STRING_OF_LETTERS_AND_NUMBERS@group.calendar.google.com",
+      userAge: 40,
     },
     {
-      'calendar_id': "<example>@group.calendar.google.com",
-      'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
-      'program_type': "Swimming",
-      'course_title': "Aquafit: Gentle",
-      'age_info': "",
-      'color': "1"
-    }
+      locationID: 189,
+      courseTitle: "Aquafit: Gentle",
+      calendarID: "LONG_STRING_OF_LETTERS_AND_NUMBERS@group.calendar.google.com",
+      userAge: 40,
+      color: "Peacock", // other values to get this color: "1", "Pale Blue"
+    },
   ];
 ```
 
-Beginner Pilates at North Toronto Memorial, but only for ages 16 and older:
+Pilates at North Toronto Memorial, including the programs for ages 60 and older:
 
 ```js
 const programs = [
     {
-      'calendar_id': "<example>@group.calendar.google.com",
-      'facility_url': "https://www.toronto.ca/data/parks/prd/facilities/complex/189/index.html",
-      'program_type': "Fitness",
-      'course_title': "Pilates - Beginner",
-      'age_info': "(16yrs and over)",
-      'color': ""
-    }
+      locationID: 189,
+      courseTitle: "Pilates",
+      calendarID: "LONG_STRING_OF_LETTERS_AND_NUMBERS@group.calendar.google.com",
+      userAge: 65,
+    },
   ];
 ```
 
@@ -102,7 +104,7 @@ This permission is required for the script to add and update events in your cale
 
 **Connect to an external service**
 
-This permission is required for the script to read City of Toronto webpages. The script only reads data and does not send any of your data to an external service.
+This permission is required for the script to read the City of Toronto open data API. The script only reads data and does not send any of your data to an external service.
 
 
 ## Troubleshooting
@@ -117,13 +119,13 @@ The documentation for the [EventColor Enum](https://developers.google.com/apps-s
 
 | Property Name | Index | Documentation Description                                           | Actual Color                                                       |
 | :------------ | :---- | :------------------------------------------------------------------ | :----------------------------------------------------------------- |
-| PALE_BLUE     | "1"   | ![#A4BDFC](https://placehold.co/10x10/A4BDFC/A4BDFC.png) Pale Blue  | ![#7B86C6](https://placehold.co/10x10/7B86C6/7B86C6.png) Lavender  |
+| PALE_BLUE     | "1"   | ![#A4BDFC](https://placehold.co/10x10/A4BDFC/A4BDFC.png) Pale Blue  | ![#4599DF](https://placehold.co/10x10/4599DF/4599DF.png) Peacock   |
 | PALE_GREEN    | "2"   | ![#7AE7BF](https://placehold.co/10x10/7AE7BF/7AE7BF.png) Pale Green | ![#5DB47E](https://placehold.co/10x10/5DB47E/5DB47E.png) Sage      |
 | MAUVE         | "3"   | ![#BDADFF](https://placehold.co/10x10/BDADFF/BDADFF.png) Mauve      | ![#832DA4](https://placehold.co/10x10/832DA4/832DA4.png) Grape     |
 | PALE_RED      | "4"   | ![#FF887C](https://placehold.co/10x10/FF887C/FF887C.png) Pale Red   | ![#D88177](https://placehold.co/10x10/D88177/D88177.png) Flamingo  |
 | YELLOW        | "5"   | ![#FBD75B](https://placehold.co/10x10/FBD75B/FBD75B.png) Yellow     | ![#EDC14B](https://placehold.co/10x10/EDC14B/EDC14B.png) Banana    |
 | ORANGE        | "6"   | ![#FFB878](https://placehold.co/10x10/FFB878/FFB878.png) Orange     | ![#E25D33](https://placehold.co/10x10/E25D33/E25D33.png) Tangerine |
-| CYAN          | "7"   | ![#46D6DB](https://placehold.co/10x10/46D6DB/46D6DB.png) Cyan       | ![#4599DF](https://placehold.co/10x10/4599DF/4599DF.png) Peacock   |
+| CYAN          | "7"   | ![#46D6DB](https://placehold.co/10x10/46D6DB/46D6DB.png) Cyan       | ![#7B86C6](https://placehold.co/10x10/7B86C6/7B86C6.png) Lavender  |
 | GRAY          | "8"   | ![#E1E1E1](https://placehold.co/10x10/E1E1E1/E1E1E1.png) Gray       | ![#616161](https://placehold.co/10x10/616161/616161.png) Graphite  |
 | BLUE          | "9"   | ![#5484ED](https://placehold.co/10x10/5484ED/5484ED.png) Blue       | ![#4350AF](https://placehold.co/10x10/4350AF/4350AF.png) Blueberry |
 | GREEN         | "10"  | ![#51B749](https://placehold.co/10x10/51B749/51B749.png) Green      | ![#397E49](https://placehold.co/10x10/397E49/397E49.png) Basil     |
