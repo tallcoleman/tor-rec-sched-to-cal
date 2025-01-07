@@ -145,13 +145,14 @@ function scheduleSync(programs, updatePastDates = false) {
     const programEvents = programSchedule.map((x) => convertEntryToEvent(x, locations));
 
     // delete current calendar events within result timeframe
+    // + Time offsets added due to known quirk of Date constructor - needed to ensure ISO date is interpreted in user's timezone and to represent end or start of day
     const firstDate = updatePastDates
       ? programSchedule
-          .map((e) => new Date(e["First Date"]))
+          .map((e) => new Date(e["First Date"] + "T00:00:00"))
           .reduce((p, c) => (c < p ? c : p))
       : todayStart;
     const lastDate = programSchedule
-      .map((e) => new Date(e["Last Date"]))
+      .map((e) => new Date(e["Last Date"] + "T23:59:59"))
       .reduce((p, c) => (c > p ? c : p));
     const eventTitles = [...new Set(programEvents.map((e) => e.title))];
     const eventLocation = programEvents[0]["options"]["location"];
