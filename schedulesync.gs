@@ -116,17 +116,21 @@ const FACILITY_BASE_URL =
 /**
  * Gets drop-in program schedules and updates them in the specified Google Calendars
  * @param {Array<ProgramQuery>} programs
+ * @param {Boolean=} updatePastDates - Whether to update calendar events in the past. False by default.
  */
-function scheduleSync(programs) {
+function scheduleSync(programs, updatePastDates = false) {
   const currentSchedule = getDropInSchedule();
   const locations = getFacilityLocations();
+  const dtnow = new Date();
+  const todayStart = new Date(dtnow.getFullYear(), dtnow.getMonth(), dtnow.getDate());
 
   for (let { locationID, courseTitle, calendarID, userAge, color } of programs) {
     const programSchedule = currentSchedule.filter(
       (entry) =>
         entry["Location ID"] === locationID &&
         entry["Course Title"] === courseTitle &&
-        userIsInAgeRange(entry, userAge)
+        userIsInAgeRange(entry, userAge) &&
+        (updatePastDates ? true : new Date(entry["Start Date Time"]) >= todayStart)
     );
 
     // skip calendar updates if there are no results
@@ -136,9 +140,11 @@ function scheduleSync(programs) {
     const programEvents = programSchedule.map((x) => convertEntryToEvent(x, locations));
 
     // delete current calendar events within result timeframe
-    const firstDate = programSchedule
-      .map((e) => new Date(e["First Date"]))
-      .reduce((p, c) => (c < p ? c : p));
+    const firstDate = updatePastDates
+      ? programSchedule
+          .map((e) => new Date(e["First Date"]))
+          .reduce((p, c) => (c < p ? c : p))
+      : todayStart;
     const lastDate = programSchedule
       .map((e) => new Date(e["Last Date"]))
       .reduce((p, c) => (c > p ? c : p));
