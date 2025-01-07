@@ -135,7 +135,12 @@ function scheduleSync(programs, updatePastDates = false) {
 
     // skip calendar updates if there are no results
     // Note: this may result in cancelled events not being removed from the calendar
-    if (programSchedule.length === 0) continue;
+    if (programSchedule.length === 0) {
+      Logger.log(
+        `No matching events found for location ID ${locationID} with title "${courseTitle}"${userAge ? ` and user age of ${userAge}` : ""}`
+      );
+      continue;
+    }
 
     const programEvents = programSchedule.map((x) => convertEntryToEvent(x, locations));
 
@@ -153,7 +158,9 @@ function scheduleSync(programs, updatePastDates = false) {
     deleteExistingEvents(firstDate, lastDate, eventTitles, eventLocation, calendarID);
 
     // add new calendar events within timeframe
-    Logger.log(`Adding or updating ${programEvents.length} events...`);
+    Logger.log(
+      `Adding or updating ${programEvents.length} events at ${eventLocation} between ${firstDate} and ${lastDate} with titles ${eventTitles.map((x) => `"${x}"`).join("; ")}...`
+    );
     for (const event of programEvents) {
       createEvent(event, calendarID, color);
     }
@@ -269,7 +276,9 @@ function deleteExistingEvents(
   const inputCalendar = CalendarApp.getCalendarById(calendarID);
   const existingEvents = inputCalendar.getEvents(firstDate, lastDate);
 
-  Logger.log(`Deleting existing events...`);
+  Logger.log(
+    `Deleting ${existingEvents.length} existing events at ${eventLocation} between ${firstDate} and ${lastDate} with titles ${eventTitles.map((x) => `"${x}"`).join("; ")} ...`
+  );
   for (let existingEvent of existingEvents) {
     if (
       eventTitles.includes(existingEvent.getTitle()) &&
