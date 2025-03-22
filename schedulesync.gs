@@ -53,14 +53,14 @@ const FACILITY_BASE_URL =
  * @property {string} `Age Max` - Age, in number of months, or "None"
  * @property {string=} `Date From` - "YYYYMMDD" format
  * @property {string=} `Date Range` - "MMM D to MMM D" format
- * @property {string} `Start Date Time` - ISO Datetime, with no tz or offset
+ * @property {string} `Start Date Time` - ISO Datetime (Open Data provides with no tz or offset which means it's interpreted in the user's timezone)
  * @property {number=} `Start Hour` - 24h clock
  * @property {number=} `Start Minute`
  * @property {number} `End Hour` - 24h clock
  * @property {number} `End Min`
  * @property {"Skating" | "General" | "Arts" | "Sports" | "Fitness" | "Swimming"} Category
- * @property {string=} `First Date` - ISO Date with no tz or offset
- * @property {string=} `Last Date` - ISO Date with no tz or offset
+ * @property {string} `First Date` - ISO Date with no tz or offset (YYYY-MM-DD)
+ * @property {string} `Last Date` - ISO Date with no tz or offset (YYYY-MM-DD)
  */
 
 /**
