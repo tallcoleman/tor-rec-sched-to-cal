@@ -47,15 +47,15 @@ const FACILITY_BASE_URL =
  * @typedef {Object} DropInSchedule
  * @property {number=} _id
  * @property {number} `Location ID`
- * @property {number} Course_ID
+ * @property {number=} Course_ID
  * @property {string} `Course Title`
  * @property {string} `Age Min` - Age, in number of months, or "None"
  * @property {string} `Age Max` - Age, in number of months, or "None"
- * @property {string} `Date From` - "YYYYMMDD" format
- * @property {string} `Date Range` - "MMM D to MMM D" format
+ * @property {string=} `Date From` - "YYYYMMDD" format
+ * @property {string=} `Date Range` - "MMM D to MMM D" format
  * @property {string} `Start Date Time` - ISO Datetime, with no tz or offset
- * @property {number} `Start Hour` - 24h clock
- * @property {number} `Start Minute`
+ * @property {number=} `Start Hour` - 24h clock
+ * @property {number=} `Start Minute`
  * @property {number} `End Hour` - 24h clock
  * @property {number} `End Min`
  * @property {"Skating" | "General" | "Arts" | "Sports" | "Fitness" | "Swimming"} Category
