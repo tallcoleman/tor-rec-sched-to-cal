@@ -27,16 +27,34 @@ function updateSchedules() {
 }
 
 /* 
-  KEY URLS
-  ========
+  KEY URLS AND RESOURCES
+  ======================
 */
 
-const DROP_IN_SCHEDULE_URL =
-  "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/da46e4ac-d4ab-4b1c-b139-6362a0a43b3c/resource/65bde5a9-6f24-4d2b-8f5c-e5c4693d225b/download/Drop-in.json";
+const DROP_IN_SCHEDULE_RESOURCE = "65bde5a9-6f24-4d2b-8f5c-e5c4693d225b";
+const DROP_IN_SCHEDULE_URL = `https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/da46e4ac-d4ab-4b1c-b139-6362a0a43b3c/resource/${DROP_IN_SCHEDULE_RESOURCE}/download/Drop-in.json`;
+const DROP_IN_SCHEDULE_META =
+  "https://ckan0.cf.opendata.inter.prod-toronto.ca/api/3/action/package_show?id=registered-programs-and-drop-in-courses-offering";
 const LOCATION_DATA_URL =
   "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/da46e4ac-d4ab-4b1c-b139-6362a0a43b3c/resource/168656d5-ea1c-4f32-ae4a-3b2d8a7ab263/download/Locations.json";
 const FACILITY_BASE_URL =
   "https://www.toronto.ca/explore-enjoy/parks-recreation/places-spaces/parks-and-recreation-facilities/location/?id=";
+
+// Conversion dict to turn age range descriptions from the Web API into Age Min and Age Max values.
+const WEB_API_AGE_RANGES = {
+  "0 years and over": { "Age Min": "None", "Age Max": "None" },
+  "0 - 5 years": { "Age Min": "None", "Age Max": 5 * 12 },
+  "6 - 12 years": { "Age Min": 6 * 12, "Age Max": 12 * 12 },
+  "7 years and over": { "Age Min": 7 * 12, "Age Max": "None" },
+  "8 - 12 years": { "Age Min": 8 * 12, "Age Max": 12 * 12 },
+  "10 - 24 years": { "Age Min": 10 * 12, "Age Max": 24 * 12 },
+  "13 years and over": { "Age Min": 13 * 12, "Age Max": "None" },
+  "13 - 23 years": { "Age Min": 13 * 12, "Age Max": 23 * 12 },
+  "13 - 24 years": { "Age Min": 13 * 12, "Age Max": 24 * 12 },
+  "16 years and over": { "Age Min": 16 * 12, "Age Max": "None" },
+  "18 years and over": { "Age Min": 18 * 12, "Age Max": "None" },
+  "60 years and over": { "Age Min": 60 * 12, "Age Max": "None" },
+};
 
 /* 
   TYPE DEFINITIONS
@@ -47,20 +65,20 @@ const FACILITY_BASE_URL =
  * @typedef {Object} DropInSchedule
  * @property {number=} _id
  * @property {number} `Location ID`
- * @property {number} Course_ID
+ * @property {number=} Course_ID
  * @property {string} `Course Title`
  * @property {string} `Age Min` - Age, in number of months, or "None"
  * @property {string} `Age Max` - Age, in number of months, or "None"
- * @property {string} `Date From` - "YYYYMMDD" format
- * @property {string} `Date Range` - "MMM D to MMM D" format
- * @property {string} `Start Date Time` - ISO Datetime, with no tz or offset
- * @property {number} `Start Hour` - 24h clock
- * @property {number} `Start Minute`
+ * @property {string=} `Date From` - "YYYYMMDD" format
+ * @property {string=} `Date Range` - "MMM D to MMM D" format
+ * @property {string} `Start Date Time` - ISO Datetime (Open Data provides with no tz or offset which means it's interpreted in the user's timezone)
+ * @property {number=} `Start Hour` - 24h clock
+ * @property {number=} `Start Minute`
  * @property {number} `End Hour` - 24h clock
  * @property {number} `End Min`
  * @property {"Skating" | "General" | "Arts" | "Sports" | "Fitness" | "Swimming"} Category
- * @property {string=} `First Date` - ISO Date with no tz or offset
- * @property {string=} `Last Date` - ISO Date with no tz or offset
+ * @property {string} `First Date` - ISO Date with no tz or offset (YYYY-MM-DD)
+ * @property {string} `Last Date` - ISO Date with no tz or offset (YYYY-MM-DD)
  */
 
 /**
@@ -119,7 +137,20 @@ const FACILITY_BASE_URL =
  * @param {Boolean=} updatePastDates - Whether to update calendar events in the past. False by default.
  */
 function scheduleSync(programs, updatePastDates = false) {
-  const currentSchedule = getDropInSchedule();
+  const daysSinceScheduleUpdate = getDaysSinceScheduleUpdate();
+
+  // Fallback to web API if Open Data has not been updated in over 2 weeks
+  let currentSchedule;
+  if (daysSinceScheduleUpdate > 14) {
+    Logger.log(
+      `Open Data for drop-in programs has not be updated in ${Math.round(daysSinceScheduleUpdate)} days, falling back to web API instead.`
+    );
+    const programLocations = [...new Set(programs.map((p) => p.locationID))];
+    currentSchedule = getAllDropInSchedulesWeb(programLocations);
+  } else {
+    currentSchedule = getDropInSchedule();
+  }
+
   const locations = getFacilityLocations();
   const dtnow = new Date();
   const todayStart = new Date(dtnow.getFullYear(), dtnow.getMonth(), dtnow.getDate());
@@ -166,6 +197,32 @@ function scheduleSync(programs, updatePastDates = false) {
       createEvent(event, calendarID, color);
     }
   }
+}
+
+/**
+ * Requests and returns the number of days since the drop-in schedule data was updated from the Toronto Open Data Portal (https://open.toronto.ca/dataset/registered-programs-and-drop-in-courses-offering/).
+ * @param {string=} url - URL of the Open Data Portal data source
+ * @param {string=} resource - Resource ID from the Open Data Portal
+ * @returns {number} - Number of days since the data was updated
+ */
+function getDaysSinceScheduleUpdate(
+  url = DROP_IN_SCHEDULE_META,
+  resource = DROP_IN_SCHEDULE_RESOURCE
+) {
+  let response = UrlFetchApp.fetch(url);
+  if (response.getResponseCode() !== 200) {
+    throw new Error(
+      `Request to Toronto open data portal for drop in schedule metadata failed with response code ${response.getResponseCode()}`
+    );
+  }
+  let data = JSON.parse(response);
+  const [resourceMeta] = data.result.resources.filter((r) => r.id === resource);
+
+  const dateLastUpdated = new Date(resourceMeta.last_modified);
+  const today = new Date();
+  const daysSinceUpdate = (today - dateLastUpdated) / (1000 * 60 * 60 * 24);
+
+  return daysSinceUpdate;
 }
 
 /**
@@ -436,6 +493,172 @@ function getCalendarColor(input) {
       calendarColor = null;
   }
   return calendarColor;
+}
+
+/* 
+  WEB API FALLBACK
+  ================
+*/
+
+const PROGRAM_TYPES = {
+  fitness: "Fitness",
+  skate: "Skating",
+  sports: "Sports",
+  swim: "Swimming",
+  arts: "Arts",
+  // unsure what the key is for "General"
+};
+
+/**
+ * Return drop-in schedules for a list of locations using the Parks and Recreation Web API
+ * @param {number[]} locations - Array of location ids
+ * @param {object=} programTypes
+ * @returns {Array<DropInSchedule>}
+ */
+function getAllDropInSchedulesWeb(locations, programTypes = PROGRAM_TYPES) {
+  let schedules = [];
+  for (const location of locations) {
+    Logger.log(`Getting drop-in program data using Web API for location ${location}`);
+    for (const type of Object.keys(programTypes)) {
+      const schedule = getDropInScheduleWeb(location, type);
+      schedules.push(...schedule);
+    }
+  }
+  return schedules;
+}
+
+/**
+ * Requests, formats, and returns the drop-in schedule from Parks, Forestry, and Education's web API for a specific location and program type
+ * @param {number} location
+ * @param {"fitness" | "skate" | "sports" | "swim" | "arts"} programType
+ * @param {object=} programTypes
+ * @returns {Array<DropInSchedule>}
+ */
+function getDropInScheduleWeb(location, programType, programTypes = PROGRAM_TYPES) {
+  const info = pfrAPIRequest(location, programType, "info.json");
+
+  let programs = [];
+  const programCategory = programTypes[programType] ?? "Unknown";
+  for (const week of info.weeks) {
+    // check if week has programs
+    const weekHasPrograms = week.hasPrograms;
+    if (weekHasPrograms !== "true") continue;
+
+    const weekStart = week.title;
+    const weekResource = week.json;
+    const weekSchedule = pfrAPIRequest(location, programType, weekResource);
+
+    for (const program of weekSchedule.programs) {
+      for (const day of program.days) {
+        const programTitle = day.title;
+        const programAgeDescription = day.age;
+        const programAgeRange = getAgeRange(programAgeDescription);
+        if (day.status !== "active") Logger.log("Found an inactive day");
+
+        for (const time of day.times) {
+          const programDayName = time.day;
+          const programTimeDescription = time.title;
+          if (time.status !== "active") Logger.log("Found an inactive time");
+
+          const programDateTimes = getProgramDateTimes(
+            weekStart,
+            programDayName,
+            programTimeDescription
+          );
+
+          programs.push({
+            "Location ID": location,
+            "Course Title": programTitle,
+            ...programAgeRange,
+            ...programDateTimes,
+            Category: programCategory,
+          });
+        }
+      }
+    }
+  }
+
+  return programs;
+}
+
+/**
+ * Requests and returns raw drop-in schedule data from Parks, Forestry, and Education's web API
+ * @param {number} location
+ * @param {string} programType
+ * @param {"info.json" | "week1.json" | "week2.json", | "week3.json" | "week4.json"} resource
+ * @returns {object}
+ */
+function pfrAPIRequest(location, programType, resource) {
+  const url = `https://www.toronto.ca/data/parks/live/locations/${location}/${programType}/${resource}`;
+  let response = UrlFetchApp.fetch(url);
+  if (response.getResponseCode() !== 200) {
+    throw new Error(
+      `Request to PF&R web API for ${resource} for ${programType} at location ${location} failed with response code ${response.getResponseCode()}`
+    );
+  }
+  let data = JSON.parse(response.getContentText("UTF-16"));
+  return data;
+}
+
+/**
+ * Function to return 'Age Min' and 'Age Max' values using age range description from Web API. Should be replaced later with a parsing function.
+ * @param {string} programAgeDescription - e.g. "7 years and over", "6 - 12 years"
+ * @param {object} ageRanges
+ * @returns {object}
+ */
+function getAgeRange(programAgeDescription, ageRanges = WEB_API_AGE_RANGES) {
+  if (!ageRanges.hasOwnProperty(programAgeDescription)) {
+    Logger.log(`Unable to decode age range for description '${programAgeDescription}'`);
+  }
+  return ageRanges[programAgeDescription] ?? { "Age Min": "None", "Age Max": "None" };
+}
+
+/**
+ * Function to return 'Start Date Time', 'End Hour', 'End Min', 'First Date', and 'Last Date' values using data from Web API.
+ * @param {string} weekStart - date string in YYYY-MM-DD format
+ * @param {"monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"} programDayName
+ * @param {string} programTimeDescription - e.g. "07:45 PM - 09:00 PM"
+ * @returns {object}
+ */
+function getProgramDateTimes(weekStart, programDayName, programTimeDescription) {
+  const dayNumbers = {
+    monday: 0,
+    tuesday: 1,
+    wednesday: 2,
+    thursday: 3,
+    friday: 4,
+    saturday: 5,
+    sunday: 6,
+  };
+
+  if (!dayNumbers.hasOwnProperty(programDayName))
+    throw Error(`Invalid programDayName '${programDayName}'`);
+
+  // get the program date
+  const weekStartDate = new Date(weekStart + "T00:00:00");
+  const nextWeekStartDate = new Date(weekStartDate);
+  nextWeekStartDate.setDate(weekStartDate.getDate() + 7);
+  const programDate = new Date(weekStartDate);
+  programDate.setDate(weekStartDate.getDate() + dayNumbers[programDayName]);
+  const programDateString = programDate.toLocaleDateString("en-CA");
+
+  // parse out the start and end times
+  const [programStartTimeDescription, programEndTimeDescription] =
+    programTimeDescription.split(" - ").map((s) => s.trim());
+  const programStartDateTime = new Date(
+    programDateString + " " + programStartTimeDescription
+  );
+  const programEndDateTime = new Date(
+    programDateString + " " + programEndTimeDescription
+  );
+
+  return {
+    "Start Date Time": programStartDateTime.toISOString(),
+    "End Hour": programEndDateTime.getHours(),
+    "End Min": programEndDateTime.getMinutes(),
+    "First Date": weekStart,
+    "Last Date": nextWeekStartDate.toLocaleDateString("en-CA"),
+  };
 }
 
 /*
