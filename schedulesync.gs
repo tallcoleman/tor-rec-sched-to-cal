@@ -31,12 +31,14 @@ function updateSchedules() {
   ======================
 */
 
-const DROP_IN_SCHEDULE_RESOURCE = "65bde5a9-6f24-4d2b-8f5c-e5c4693d225b";
-const DROP_IN_SCHEDULE_URL = `https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/da46e4ac-d4ab-4b1c-b139-6362a0a43b3c/resource/${DROP_IN_SCHEDULE_RESOURCE}/download/Drop-in.json`;
+// CKAN resources and URLs should be JSON versions of Drop-In Programs and Locations from https://open.toronto.ca/dataset/registered-programs-and-drop-in-courses-offering/
+
+const DROP_IN_SCHEDULE_RESOURCE = "067b41e7-ac8a-4d3f-ad08-089f8cd70316";
+const DROP_IN_SCHEDULE_URL = `https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/1a5be46a-4039-48cd-a2d2-8e702abf9516/resource/${DROP_IN_SCHEDULE_RESOURCE}/download/Drop-in.json`;
 const DROP_IN_SCHEDULE_META =
   "https://ckan0.cf.opendata.inter.prod-toronto.ca/api/3/action/package_show?id=registered-programs-and-drop-in-courses-offering";
 const LOCATION_DATA_URL =
-  "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/da46e4ac-d4ab-4b1c-b139-6362a0a43b3c/resource/168656d5-ea1c-4f32-ae4a-3b2d8a7ab263/download/Locations.json";
+  "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/1a5be46a-4039-48cd-a2d2-8e702abf9516/resource/87f95a5a-184f-4df5-ad37-84bcc1ea99a9/download/Locations.json";
 const FACILITY_BASE_URL =
   "https://www.toronto.ca/explore-enjoy/parks-recreation/places-spaces/parks-and-recreation-facilities/location/?id=";
 
@@ -71,7 +73,6 @@ const WEB_API_AGE_RANGES = {
  * @property {string} `Age Max` - Age, in number of months, or "None"
  * @property {string=} `Date From` - "YYYYMMDD" format
  * @property {string=} `Date Range` - "MMM D to MMM D" format
- * @property {string} `Start Date Time` - ISO Datetime (Open Data provides with no tz or offset which means it's interpreted in the user's timezone)
  * @property {number=} `Start Hour` - 24h clock
  * @property {number=} `Start Minute`
  * @property {number} `End Hour` - 24h clock
@@ -143,7 +144,7 @@ function scheduleSync(programs, updatePastDates = false) {
   let currentSchedule;
   if (daysSinceScheduleUpdate > 14) {
     Logger.log(
-      `Open Data for drop-in programs has not be updated in ${Math.round(daysSinceScheduleUpdate)} days, falling back to web API instead.`
+      `Open Data for drop-in programs has not be updated in ${Math.round(daysSinceScheduleUpdate)} days, falling back to web API instead.`,
     );
     const programLocations = [...new Set(programs.map((p) => p.locationID))];
     currentSchedule = getAllDropInSchedulesWeb(programLocations);
@@ -161,14 +162,14 @@ function scheduleSync(programs, updatePastDates = false) {
         entry["Location ID"] === locationID &&
         entry["Course Title"] === courseTitle &&
         userIsInAgeRange(entry, userAge) &&
-        (updatePastDates ? true : new Date(entry["Start Date Time"]) >= todayStart)
+        (updatePastDates ? true : getStartDateTime(entry) >= todayStart),
     );
 
     // skip calendar updates if there are no results
     // Note: this may result in cancelled events not being removed from the calendar
     if (programSchedule.length === 0) {
       Logger.log(
-        `No matching events found for location ID ${locationID} with title "${courseTitle}"${userAge ? ` and user age of ${userAge}` : ""}`
+        `No matching events found for location ID ${locationID} with title "${courseTitle}"${userAge ? ` and user age of ${userAge}` : ""}`,
       );
       continue;
     }
@@ -191,7 +192,7 @@ function scheduleSync(programs, updatePastDates = false) {
 
     // add new calendar events within timeframe
     Logger.log(
-      `Adding or updating ${programEvents.length} events at ${eventLocation} between ${firstDate} and ${lastDate} with titles ${eventTitles.map((x) => `"${x}"`).join("; ")}...`
+      `Adding or updating ${programEvents.length} events at ${eventLocation} between ${firstDate} and ${lastDate} with titles ${eventTitles.map((x) => `"${x}"`).join("; ")}...`,
     );
     for (const event of programEvents) {
       createEvent(event, calendarID, color);
@@ -207,16 +208,20 @@ function scheduleSync(programs, updatePastDates = false) {
  */
 function getDaysSinceScheduleUpdate(
   url = DROP_IN_SCHEDULE_META,
-  resource = DROP_IN_SCHEDULE_RESOURCE
+  resource = DROP_IN_SCHEDULE_RESOURCE,
 ) {
   let response = UrlFetchApp.fetch(url);
   if (response.getResponseCode() !== 200) {
     throw new Error(
-      `Request to Toronto open data portal for drop in schedule metadata failed with response code ${response.getResponseCode()}`
+      `Request to Toronto open data portal for drop in schedule metadata failed with response code ${response.getResponseCode()}`,
     );
   }
   let data = JSON.parse(response);
+
   const [resourceMeta] = data.result.resources.filter((r) => r.id === resource);
+  if (!resourceMeta) {
+    throw new Error(`Resource ${resource} not found in data returned by ${url}`);
+  }
 
   const dateLastUpdated = new Date(resourceMeta.last_modified);
   const today = new Date();
@@ -234,7 +239,7 @@ function getDropInSchedule(url = DROP_IN_SCHEDULE_URL) {
   let response = UrlFetchApp.fetch(url);
   if (response.getResponseCode() !== 200) {
     throw new Error(
-      `Request to Toronto open data portal for drop in schedule failed with response code ${response.getResponseCode()}`
+      `Request to Toronto open data portal for drop in schedule failed with response code ${response.getResponseCode()}`,
     );
   }
   let data = JSON.parse(response);
@@ -250,7 +255,7 @@ function getFacilityLocations(url = LOCATION_DATA_URL) {
   let response = UrlFetchApp.fetch(url);
   if (response.getResponseCode() !== 200) {
     throw new Error(
-      `Request to Toronto open data portal for locations failed with response code ${response.getResponseCode()}`
+      `Request to Toronto open data portal for locations failed with response code ${response.getResponseCode()}`,
     );
   }
   let data = JSON.parse(response);
@@ -276,7 +281,7 @@ function userIsInAgeRange(entry, userAge) {
     minTest = userAgeMonths >= entryAgeMin;
   } else {
     throw new Error(
-      `Unable to determine if user age matches program. User age: ${userAge} years, Program age min: ${entry["Age Min"]} months, for ${entry["Course Title"]} at location ${entry["Location ID"]}`
+      `Unable to determine if user age matches program. User age: ${userAge} years, Program age min: ${entry["Age Min"]} months, for ${entry["Course Title"]} at location ${entry["Location ID"]}`,
     );
   }
 
@@ -285,7 +290,7 @@ function userIsInAgeRange(entry, userAge) {
     maxTest = userAgeMonths <= entryAgeMax;
   } else {
     throw new Error(
-      `Unable to determine if user age matches program. User age: ${userAge} years, Program age max: ${entry["Age Max"]} months, for ${entry["Course Title"]} at location ${entry["Location ID"]}`
+      `Unable to determine if user age matches program. User age: ${userAge} years, Program age max: ${entry["Age Max"]} months, for ${entry["Course Title"]} at location ${entry["Location ID"]}`,
     );
   }
 
@@ -299,7 +304,7 @@ function userIsInAgeRange(entry, userAge) {
  */
 function convertEntryToEvent(entry, locations) {
   const title = `${entry["Course Title"]} (${generateAgeRangeDescription(entry)})`;
-  const startTime = new Date(entry["Start Date Time"]);
+  const startTime = getStartDateTime(entry);
   let endTime = new Date(startTime);
   endTime.setHours(entry["End Hour"], entry["End Min"] ?? 0);
   const description = `More details at ${FACILITY_BASE_URL}${entry["Location ID"]}`;
@@ -329,13 +334,13 @@ function deleteExistingEvents(
   lastDate,
   eventTitles,
   eventLocation,
-  calendarID
+  calendarID,
 ) {
   const inputCalendar = CalendarApp.getCalendarById(calendarID);
   const existingEvents = inputCalendar.getEvents(firstDate, lastDate);
 
   Logger.log(
-    `Deleting ${existingEvents.length} existing events at ${eventLocation} between ${firstDate} and ${lastDate} with titles ${eventTitles.map((x) => `"${x}"`).join("; ")} ...`
+    `Deleting ${existingEvents.length} existing events at ${eventLocation} between ${firstDate} and ${lastDate} with titles ${eventTitles.map((x) => `"${x}"`).join("; ")} ...`,
   );
   for (let existingEvent of existingEvents) {
     if (
@@ -360,7 +365,7 @@ function createEvent(eventDetails, calendarID, color) {
     eventDetails["title"],
     eventDetails["startTime"],
     eventDetails["endTime"],
-    eventDetails["options"]
+    eventDetails["options"],
   );
   if (color) event.setColor(getCalendarColor(color));
   return event;
@@ -406,7 +411,7 @@ function generateAgeRangeDescription(entry) {
     return `Ages ${generateAgeDescription(entryAgeMin)} to ${generateAgeDescription(entryAgeMax)}`;
   } else {
     throw new Error(
-      `Unable to generate age range description based on min age ${entry["Age Min"]} months and max age ${entry["Age Max"]} months`
+      `Unable to generate age range description based on min age ${entry["Age Min"]} months and max age ${entry["Age Max"]} months`,
     );
   }
 }
@@ -563,7 +568,7 @@ function getDropInScheduleWeb(location, programType, programTypes = PROGRAM_TYPE
           const programDateTimes = getProgramDateTimes(
             weekStart,
             programDayName,
-            programTimeDescription
+            programTimeDescription,
           );
 
           programs.push({
@@ -593,7 +598,7 @@ function pfrAPIRequest(location, programType, resource) {
   let response = UrlFetchApp.fetch(url);
   if (response.getResponseCode() !== 200) {
     throw new Error(
-      `Request to PF&R web API for ${resource} for ${programType} at location ${location} failed with response code ${response.getResponseCode()}`
+      `Request to PF&R web API for ${resource} for ${programType} at location ${location} failed with response code ${response.getResponseCode()}`,
     );
   }
   let data = JSON.parse(response.getContentText("UTF-16"));
@@ -614,7 +619,19 @@ function getAgeRange(programAgeDescription, ageRanges = WEB_API_AGE_RANGES) {
 }
 
 /**
- * Function to return 'Start Date Time', 'End Hour', 'End Min', 'First Date', and 'Last Date' values using data from Web API.
+ * Function to get a Start Date Time from 'First Date', 'Start Hour', and 'Start Minute'
+ * @param {DropInSchedule} entry
+ * @returns {Date}
+ */
+function getStartDateTime(entry) {
+  // Addition of time string required because of known quirk of Date: when the time zone offset is absent, date-only forms are interpreted as a UTC time
+  const startDateTime = new Date(entry["First Date"] + "T00:00:00");
+  startDateTime.setHours(entry["Start Hour"], entry["Start Minute"] ?? 0);
+  return startDateTime;
+}
+
+/**
+ * Function to return 'Start Hour', 'Start Minute', 'End Hour', 'End Min', 'First Date', and 'Last Date' values using data from Web API.
  * @param {string} weekStart - date string in YYYY-MM-DD format
  * @param {"monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"} programDayName
  * @param {string} programTimeDescription - e.g. "07:45 PM - 09:00 PM"
@@ -646,15 +663,15 @@ function getProgramDateTimes(weekStart, programDayName, programTimeDescription) 
   const [programStartTimeDescription, programEndTimeDescription] =
     programTimeDescription.split(" - ").map((s) => s.trim());
   const programStartDateTime = new Date(
-    programDateString + " " + programStartTimeDescription
+    programDateString + " " + programStartTimeDescription,
   );
   const programEndDateTime = new Date(
-    programDateString + " " + programEndTimeDescription
+    programDateString + " " + programEndTimeDescription,
   );
 
   return {
-    "Start Date Time": programStartDateTime.toISOString(),
-    "End Hour": programEndDateTime.getHours(),
+    "Start Hour": programStartDateTime.getHours(),
+    "Start Minute": programStartDateTime.getMinutes(),
     "End Min": programEndDateTime.getMinutes(),
     "First Date": weekStart,
     "Last Date": nextWeekStartDate.toLocaleDateString("en-CA"),
